@@ -1,0 +1,32 @@
+[package]
+name = "mycelia"
+version = "0.1.0"
+edition = "2021"
+description = "A Vampire Survivors-inspired roguelite where you control a spreading fungal network"
+license = "MIT"
+repository = "https://github.com/eloidieme/mycelia"
+
+[dependencies]
+bevy = { version = "0.15", features = ["dynamic_linking"] }
+rand = "0.8"
+
+[dev-dependencies]
+# For testing
+approx = "0.5"
+
+# Enable optimizations for dependencies in dev builds for better performance
+[profile.dev.package."*"]
+opt-level = 3
+
+# Keep debug info for our code in dev for better debugging
+[profile.dev]
+opt-level = 1
+
+# Release profile with LTO for smaller binaries
+[profile.release]
+lto = true
+codegen-units = 1
+
+[lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"

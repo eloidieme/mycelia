@@ -1,19 +1,29 @@
 //! Graph traversal utilities for the fungal network
 //!
 //! Provides functions to traverse and query the network graph structure.
+//!
+//! All functions include cycle protection to handle malformed graphs gracefully.
 
 use bevy::prelude::*;
+use bevy::utils::HashSet;
 
 use super::components::{NetworkChildren, NetworkParent};
 
 /// Check if a segment is connected to the core node
 ///
 /// Traverses up the parent chain to see if it eventually reaches the core.
+/// Returns false if a cycle is detected (malformed graph).
 pub fn is_connected_to_core(entity: Entity, parents: &Query<&NetworkParent>, core: Entity) -> bool {
+    let mut visited = HashSet::new();
     let mut current = entity;
+
     loop {
         if current == core {
             return true;
+        }
+        if !visited.insert(current) {
+            // Cycle detected - not connected to core
+            return false;
         }
         match parents.get(current) {
             Ok(parent) => current = parent.0,
@@ -26,11 +36,17 @@ pub fn is_connected_to_core(entity: Entity, parents: &Query<&NetworkParent>, cor
 ///
 /// This includes all children, grandchildren, etc. Useful for finding
 /// what would be severed if this segment is destroyed.
+/// Uses visited tracking to avoid duplicates if cycles exist.
 pub fn find_downstream_segments(entity: Entity, children: &Query<&NetworkChildren>) -> Vec<Entity> {
     let mut result = Vec::new();
+    let mut visited = HashSet::new();
     let mut stack = vec![entity];
 
     while let Some(current) = stack.pop() {
+        if !visited.insert(current) {
+            // Already visited, skip to avoid duplicates/cycles
+            continue;
+        }
         result.push(current);
         if let Ok(kids) = children.get(current) {
             stack.extend(kids.0.iter());
@@ -42,18 +58,23 @@ pub fn find_downstream_segments(entity: Entity, children: &Query<&NetworkChildre
 
 /// Calculate hop distance from core node
 ///
-/// Returns None if the entity is not connected to the core.
+/// Returns None if the entity is not connected to the core or if a cycle is detected.
 pub fn distance_from_core(
     entity: Entity,
     parents: &Query<&NetworkParent>,
     core: Entity,
 ) -> Option<u32> {
+    let mut visited = HashSet::new();
     let mut current = entity;
     let mut distance = 0;
 
     loop {
         if current == core {
             return Some(distance);
+        }
+        if !visited.insert(current) {
+            // Cycle detected
+            return None;
         }
         match parents.get(current) {
             Ok(parent) => {
@@ -68,16 +89,21 @@ pub fn distance_from_core(
 /// Find the path from an entity to the core
 ///
 /// Returns the list of entities from the given entity to the core (inclusive).
-/// Returns None if not connected to core.
+/// Returns None if not connected to core or if a cycle is detected.
 pub fn path_to_core(
     entity: Entity,
     parents: &Query<&NetworkParent>,
     core: Entity,
 ) -> Option<Vec<Entity>> {
+    let mut visited = HashSet::new();
     let mut path = Vec::new();
     let mut current = entity;
 
     loop {
+        if !visited.insert(current) {
+            // Cycle detected
+            return None;
+        }
         path.push(current);
         if current == core {
             return Some(path);
@@ -263,10 +289,14 @@ mod tests {
 
     // Helper functions for tests that need query access
     fn is_connected_helper(app: &App, entity: Entity, core: Entity) -> bool {
+        let mut visited = HashSet::new();
         let mut current = entity;
         loop {
             if current == core {
                 return true;
+            }
+            if !visited.insert(current) {
+                return false;
             }
             match app.world().get::<NetworkParent>(current) {
                 Some(parent) => current = parent.0,
@@ -277,9 +307,13 @@ mod tests {
 
     fn find_downstream_helper(app: &App, entity: Entity) -> Vec<Entity> {
         let mut result = Vec::new();
+        let mut visited = HashSet::new();
         let mut stack = vec![entity];
 
         while let Some(current) = stack.pop() {
+            if !visited.insert(current) {
+                continue;
+            }
             result.push(current);
             if let Some(kids) = app.world().get::<NetworkChildren>(current) {
                 stack.extend(kids.0.iter());
@@ -290,12 +324,16 @@ mod tests {
     }
 
     fn distance_helper(app: &App, entity: Entity, core: Entity) -> Option<u32> {
+        let mut visited = HashSet::new();
         let mut current = entity;
         let mut distance = 0;
 
         loop {
             if current == core {
                 return Some(distance);
+            }
+            if !visited.insert(current) {
+                return None;
             }
             match app.world().get::<NetworkParent>(current) {
                 Some(parent) => {
@@ -308,10 +346,14 @@ mod tests {
     }
 
     fn path_to_core_helper(app: &App, entity: Entity, core: Entity) -> Option<Vec<Entity>> {
+        let mut visited = HashSet::new();
         let mut path = Vec::new();
         let mut current = entity;
 
         loop {
+            if !visited.insert(current) {
+                return None;
+            }
             path.push(current);
             if current == core {
                 return Some(path);

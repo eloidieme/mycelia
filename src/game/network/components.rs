@@ -135,7 +135,7 @@ impl Default for TendrilPosition {
 pub struct NetworkParent(pub Entity);
 
 /// Connection to child segments (away from core)
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Clone)]
 pub struct NetworkChildren(pub Vec<Entity>);
 
 impl NetworkChildren {
@@ -147,10 +147,12 @@ impl NetworkChildren {
         self.0.retain(|&e| e != child);
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }

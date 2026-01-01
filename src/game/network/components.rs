@@ -31,7 +31,11 @@ impl Health {
     }
 
     pub fn percentage(&self) -> f32 {
-        self.current / self.max
+        if self.max > 0.0 {
+            self.current / self.max
+        } else {
+            0.0
+        }
     }
 }
 
@@ -181,6 +185,15 @@ mod tests {
         assert_eq!(health.percentage(), 1.0);
         health.damage(25.0);
         assert_eq!(health.percentage(), 0.75);
+    }
+
+    #[test]
+    fn test_health_percentage_zero_max() {
+        let health = Health {
+            current: 0.0,
+            max: 0.0,
+        };
+        assert_eq!(health.percentage(), 0.0); // Should not panic
     }
 
     // NetworkMember tests

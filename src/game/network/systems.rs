@@ -19,12 +19,12 @@ pub fn spawn_core_node(mut commands: Commands) {
             CoreNode,
             NetworkMember,
             Health::new(CORE_NODE_HEALTH),
-            visuals,
             Sprite {
-                color: Color::srgb(0.4, 0.8, 0.4),
+                color: visuals.base_color,
                 custom_size: Some(Vec2::splat(CORE_NODE_SIZE)),
                 ..default()
             },
+            visuals,
             Transform::from_xyz(0.0, 0.0, 0.0),
         ))
         .id();
@@ -45,9 +45,11 @@ pub fn check_core_death(
     core_query: Query<&Health, With<CoreNode>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    for health in core_query.iter() {
-        if health.is_dead() {
-            next_state.set(GameState::GameOver);
-        }
+    let Ok(health) = core_query.get_single() else {
+        return;
+    };
+
+    if health.is_dead() {
+        next_state.set(GameState::GameOver);
     }
 }

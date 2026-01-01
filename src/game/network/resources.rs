@@ -6,6 +6,10 @@ use bevy::prelude::*;
 #[derive(Resource)]
 pub struct CoreNodeEntity(pub Entity);
 
+/// Currently active growth tip entity, if any
+#[derive(Resource, Debug, Default)]
+pub struct ActiveGrowthTip(pub Option<Entity>);
+
 /// Tracks overall network statistics
 #[derive(Resource, Debug, Default)]
 pub struct NetworkStats {
@@ -52,6 +56,18 @@ impl Default for NetworkConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_active_growth_tip_default() {
+        let active_tip = ActiveGrowthTip::default();
+        assert!(active_tip.0.is_none());
+    }
+
+    #[test]
+    fn test_active_growth_tip_is_resource() {
+        fn assert_resource<T: Resource>() {}
+        assert_resource::<ActiveGrowthTip>();
+    }
 
     #[test]
     fn test_network_stats_default() {

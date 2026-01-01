@@ -119,7 +119,6 @@ pub fn path_to_core(
 mod tests {
     use super::*;
 
-    /// Helper to create a minimal test app
     fn create_test_app() -> App {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);

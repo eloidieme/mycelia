@@ -44,8 +44,8 @@ impl Plugin for ProgressionPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::state::app::StatesPlugin;
     use crate::game::network::NetworkStats;
+    use bevy::state::app::StatesPlugin;
 
     fn create_test_app() -> App {
         let mut app = App::new();
@@ -84,7 +84,10 @@ mod tests {
         let mut app = create_test_app();
         app.update();
 
-        assert!(app.world().get_resource::<PassiveNutrientConfig>().is_some());
+        assert!(app
+            .world()
+            .get_resource::<PassiveNutrientConfig>()
+            .is_some());
     }
 
     #[test]
@@ -103,13 +106,18 @@ mod tests {
         app.update();
 
         // In Menu state - nutrients should not increase
-        app.world_mut().resource_mut::<NetworkStats>().connected_segments = 100;
+        app.world_mut()
+            .resource_mut::<NetworkStats>()
+            .connected_segments = 100;
         let initial = app.world().resource::<Nutrients>().current;
 
         app.update();
 
         let after_menu = app.world().resource::<Nutrients>().current;
-        assert_eq!(initial, after_menu, "Nutrients should not change in Menu state");
+        assert_eq!(
+            initial, after_menu,
+            "Nutrients should not change in Menu state"
+        );
 
         // Transition to Playing
         app.world_mut()
@@ -119,7 +127,10 @@ mod tests {
         app.update();
 
         let after_playing = app.world().resource::<Nutrients>().current;
-        assert!(after_playing > after_menu, "Nutrients should increase in Playing state");
+        assert!(
+            after_playing > after_menu,
+            "Nutrients should increase in Playing state"
+        );
     }
 
     #[test]
@@ -127,26 +138,43 @@ mod tests {
         let mut app = create_test_app();
         app.update();
 
-        // Transition to Playing
         app.world_mut()
             .resource_mut::<NextState<GameState>>()
             .set(GameState::Playing);
         app.update();
         app.update();
 
-        // With 10 segments
-        app.world_mut().resource_mut::<NetworkStats>().connected_segments = 10;
+        {
+            let mut stats = app.world_mut().resource_mut::<NetworkStats>();
+            stats.connected_segments = 10;
+            stats.territory_coverage = 10.0;
+        }
         app.world_mut().resource_mut::<Nutrients>().current = 50.0;
-        app.update();
+
+        for _ in 0..6000 {
+            app.update();
+        }
+
         let with_10 = app.world().resource::<Nutrients>().current;
 
-        // Reset and try with 20 segments
-        app.world_mut().resource_mut::<NetworkStats>().connected_segments = 20;
+        {
+            let mut stats = app.world_mut().resource_mut::<NetworkStats>();
+            stats.connected_segments = 20;
+            stats.territory_coverage = 20.0;
+        }
         app.world_mut().resource_mut::<Nutrients>().current = 50.0;
-        app.update();
+
+        for _ in 0..6000 {
+            app.update();
+        }
+
         let with_20 = app.world().resource::<Nutrients>().current;
 
-        // More segments should produce more nutrients
-        assert!(with_20 - 50.0 > with_10 - 50.0);
+        assert!(
+            with_20 > with_10,
+            "Expected 20 segments ({}) to generate more than 10 segments ({})",
+            with_20,
+            with_10
+        );
     }
 }

@@ -5,6 +5,7 @@
 //! - Network connectivity and severance
 //! - Specialized tendril types
 //! - Core node management
+//! - Visual rendering of the network
 
 use bevy::prelude::*;
 
@@ -12,10 +13,12 @@ use crate::GameState;
 
 mod components;
 pub mod graph;
+mod rendering;
 mod resources;
 mod systems;
 
 pub use components::*;
+pub use rendering::{lerp_color, segment_color, TendrilAnimationState, TendrilStyle};
 pub use resources::*;
 
 /// Plugin for the fungal network system
@@ -24,14 +27,34 @@ pub struct NetworkPlugin;
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app
+            // Resources
+            .init_resource::<TendrilAnimationState>()
             // Spawn core node when entering Playing state
             .add_systems(OnEnter(GameState::Playing), systems::spawn_core_node)
             // Despawn core node when entering Menu (cleanup)
             .add_systems(OnEnter(GameState::Menu), systems::despawn_core_node)
-            // Check for core death during gameplay
+            // Update systems during gameplay
             .add_systems(
                 Update,
-                systems::check_core_death.run_if(in_state(GameState::Playing)),
+                (
+                    systems::check_core_death,
+                    rendering::update_tendril_animation,
+                )
+                    .run_if(in_state(GameState::Playing)),
+            )
+            // Rendering systems (run during Playing and Paused so visuals remain)
+            // Only run when Gizmos are available (requires full Bevy plugins, not MinimalPlugins)
+            .add_systems(
+                Update,
+                (
+                    rendering::render_tendrils,
+                    rendering::render_growth_tips,
+                    rendering::render_core,
+                )
+                    .run_if(
+                        resource_exists::<bevy::gizmos::config::GizmoConfigStore>
+                            .and(in_state(GameState::Playing).or(in_state(GameState::Paused))),
+                    ),
             );
     }
 }

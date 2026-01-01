@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 pub mod camera;
 pub mod combat;
+pub mod debug;
 pub mod enemies;
 pub mod input;
 pub mod map;
@@ -28,6 +29,7 @@ impl Plugin for GameSystemsPlugin {
             map::MapPlugin,
             ui::UiPlugin,
             camera::CameraPlugin,
+            debug::DebugPlugin,
         ));
     }
 }

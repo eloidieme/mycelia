@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use crate::GameState;
 
 mod components;
+pub mod graph;
 mod resources;
 mod systems;
 

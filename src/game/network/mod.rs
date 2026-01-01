@@ -37,7 +37,11 @@ impl Plugin for NetworkPlugin {
                 Update,
                 (
                     core_node::check_core_death,
-                    growth::select_growth_tip,
+                    (
+                        growth::select_growth_tip,
+                        growth::update_selected_tip_direction,
+                    )
+                        .chain(),
                     rendering::update_tendril_animation,
                 )
                     .run_if(in_state(GameState::Playing)),

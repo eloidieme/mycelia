@@ -59,6 +59,29 @@ pub fn select_growth_tip(
     }
 }
 
+pub fn update_selected_tip_direction(
+    cursor_position: Res<CursorWorldPosition>,
+    active_tip: Res<ActiveGrowthTip>,
+    mut tips_query: Query<(Entity, &mut TendrilPosition, &mut GrowthTip)>,
+) {
+    let Some(cursor) = cursor_position.position else {
+        return;
+    };
+
+    let Some(active_tip) = active_tip.0 else {
+        return;
+    };
+
+    let Some(tip_position) = tips_query.get_mut(active_tip).ok() else {
+        return;
+    };
+
+    let (_entity, mut tip_pos, _tip) = tip_position;
+
+    let direction = (cursor - tip_pos.position).normalize_or_zero();
+    tip_pos.direction = direction;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,6 +418,104 @@ mod tests {
 
         let active = app.world().resource::<ActiveGrowthTip>();
         assert!(active.0.is_none());
+    }
+
+    #[test]
+    fn test_active_growth_tip_direction_updates_toward_cursor() {
+        let mut app = create_test_app();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_position = Vec2::new(0.0, 0.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip { selected: true },
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut().resource_mut::<ActiveGrowthTip>().0 = Some(tip_entity);
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 0.0));
+
+        app.update();
+        app.update();
+
+        let tip_direction = app
+            .world()
+            .get::<TendrilPosition>(tip_entity)
+            .unwrap()
+            .direction;
+        assert_eq!(tip_direction, Vec2::X);
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 20.0));
+
+        app.update();
+        app.update();
+
+        let tip_direction = app
+            .world()
+            .get::<TendrilPosition>(tip_entity)
+            .unwrap()
+            .direction;
+        assert_eq!(tip_direction, Vec2::new(20.0, 20.0).normalize());
+    }
+
+    #[test]
+    fn test_direction_doesnt_change_for_unselected_tip() {
+        let mut app = create_test_app();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_position = Vec2::new(0.0, 0.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 0.0));
+
+        app.update();
+        app.update();
+
+        let tip_direction = app
+            .world()
+            .get::<TendrilPosition>(tip_entity)
+            .unwrap()
+            .direction;
+        assert_eq!(tip_direction, Vec2::X);
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 20.0));
+
+        app.update();
+        app.update();
+
+        let tip_direction = app
+            .world()
+            .get::<TendrilPosition>(tip_entity)
+            .unwrap()
+            .direction;
+        assert_eq!(tip_direction, Vec2::X);
     }
 
     #[test]

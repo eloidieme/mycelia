@@ -3,7 +3,7 @@
 //! Provides centralized input handling:
 //! - Mouse position in world coordinates
 //! - Device-agnostic input actions
-//! - Keyboard, mouse, and gamepad support
+//! - Keyboard and mouse support (gamepad planned)
 
 use bevy::prelude::*;
 
@@ -29,6 +29,7 @@ impl Plugin for InputPlugin {
                     systems::update_scroll_input,
                     systems::update_cursor_world_position,
                 )
+                    .chain() // Ensure keyboard runs before mouse for correct OR semantics
                     .after(systems::clear_input_actions),
             );
     }
@@ -164,5 +165,35 @@ mod tests {
 
         let actions = app.world().resource::<InputActions>();
         assert!(actions.zoom_delta != 0.0);
+    }
+
+    #[test]
+    fn test_mouse_left_click_sets_primary() {
+        let mut app = create_test_app();
+        app.update();
+
+        // Press left mouse button
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+
+        let actions = app.world().resource::<InputActions>();
+        assert!(actions.primary_held);
+    }
+
+    #[test]
+    fn test_mouse_right_click_sets_secondary() {
+        let mut app = create_test_app();
+        app.update();
+
+        // Press right mouse button
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Right);
+        app.update();
+
+        let actions = app.world().resource::<InputActions>();
+        assert!(actions.secondary_held);
     }
 }

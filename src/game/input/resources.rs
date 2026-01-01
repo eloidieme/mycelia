@@ -78,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn test_input_actions_has_any_movement() {
+    fn test_input_actions_has_movement() {
         let mut actions = InputActions::default();
         assert!(!actions.has_movement());
 

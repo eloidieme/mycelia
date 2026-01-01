@@ -33,12 +33,12 @@ The spec defines "Mouse-from-Tip Control" where the active tendril tip chases th
 ## Acceptance Criteria
 
 - [x] Clicking on a growth tip selects it (only one can be selected)
-- [ ] Selected tip is visually distinct (brighter/highlighted)
-- [ ] Selected tip's direction updates to point toward mouse cursor
-- [ ] Hovering over tips shows visual feedback
+- [ ] Selected tip is visually distinct (brighter/highlighted) -> deferred for post-MVP
+- [x] Selected tip's direction updates to point toward mouse cursor
+- [ ] Hovering over tips shows visual feedback -> deferred for post-MVP
 - [x] `ActiveGrowthTip` resource tracks the currently selected entity
 - [x] Unit tests for selection logic
-- [ ] Integration tests for hover detection
+- [ ] Integration tests for hover detection -> deferred for post-MVP
 
 ## Test Plan
 

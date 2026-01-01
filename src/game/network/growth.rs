@@ -566,6 +566,9 @@ mod tests {
             .position = Some(Vec2::new(20.0, 10.0));
 
         app.update();
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert_eq!(active.0, Some(tip_entity)); // Still set, but entity is gone, expected behavior.
     }
 
     #[test]

@@ -34,7 +34,7 @@ impl Plugin for CameraPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::input::{mouse::MouseWheel, InputPlugin};
+    use bevy::input::InputPlugin;
 
     /// Helper to create a test app with required plugins
     fn create_test_app() -> App {

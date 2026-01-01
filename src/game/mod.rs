@@ -7,6 +7,7 @@ use bevy::prelude::*;
 pub mod camera;
 pub mod combat;
 pub mod enemies;
+pub mod input;
 pub mod map;
 pub mod network;
 pub mod progression;

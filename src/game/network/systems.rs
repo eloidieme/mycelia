@@ -4,6 +4,8 @@ use bevy::prelude::*;
 
 use super::components::{CoreNode, Health, NetworkMember, NetworkVisuals};
 use super::resources::CoreNodeEntity;
+use crate::game::input::{CursorWorldPosition, InputActions};
+use crate::game::network::{ActiveGrowthTip, GrowthTip, TendrilPosition};
 use crate::GameState;
 
 /// Core node configuration
@@ -59,6 +61,47 @@ pub fn check_core_death(
 
     if health.is_dead() {
         next_state.set(GameState::GameOver);
+    }
+}
+
+pub fn select_growth_tip(
+    input: Res<InputActions>,
+    cursor_position: Res<CursorWorldPosition>,
+    mut active_tip: ResMut<ActiveGrowthTip>,
+    mut tips_query: Query<(Entity, &TendrilPosition, &mut GrowthTip)>,
+) {
+    if !input.primary_just_pressed {
+        return;
+    }
+
+    let Some(cursor) = cursor_position.position else {
+        return;
+    };
+
+    // Deselect old tip first (if it exists and hasn't been despawned)
+    if let Some(old_entity) = active_tip.0 {
+        if let Ok((_entity, _pos, mut old_tip)) = tips_query.get_mut(old_entity) {
+            old_tip.selected = false;
+        }
+    }
+
+    let closest_tip = tips_query
+        .iter_mut()
+        .filter(|(_entity, pos, _tip)| {
+            is_cursor_near_tip(cursor, pos.position, TIP_SELECTION_RADIUS)
+        })
+        .min_by(|(_, pos_a, _), (_, pos_b, _)| {
+            let dist_a = cursor.distance_squared(pos_a.position);
+            let dist_b = cursor.distance_squared(pos_b.position);
+            dist_a.total_cmp(&dist_b)
+        });
+
+    match closest_tip {
+        Some((entity, _pos, mut tip)) => {
+            tip.selected = true;
+            active_tip.0 = Some(entity);
+        }
+        None => active_tip.0 = None,
     }
 }
 

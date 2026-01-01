@@ -40,6 +40,7 @@ impl Plugin for NetworkPlugin {
                 Update,
                 (
                     systems::check_core_death,
+                    systems::select_growth_tip,
                     rendering::update_tendril_animation,
                 )
                     .run_if(in_state(GameState::Playing)),
@@ -64,7 +65,10 @@ impl Plugin for NetworkPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::GameState;
+    use crate::{
+        game::input::{CursorWorldPosition, InputActions},
+        GameState,
+    };
     use bevy::state::app::StatesPlugin;
 
     /// Helper to create test app with network plugin
@@ -73,7 +77,9 @@ mod tests {
         app.add_plugins(MinimalPlugins)
             .add_plugins(StatesPlugin)
             .init_state::<GameState>()
-            .add_plugins(NetworkPlugin);
+            .add_plugins(NetworkPlugin)
+            .init_resource::<InputActions>()
+            .init_resource::<CursorWorldPosition>();
         app
     }
 
@@ -215,5 +221,332 @@ mod tests {
             .iter(&app.world())
             .count();
         assert_eq!(core_count, 0);
+    }
+
+    #[test]
+    /// Spawn tip, select it: tip selected.
+    fn test_select_tip_with_click() {
+        // Create app and init input + cursor
+        let mut app = create_test_app();
+        app.update();
+
+        // Put the app in playing state
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        // Spawn tendril/tip entity
+        let tip_position = Vec2::new(10.0, 20.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        // Set cursor and press primary button
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(10.0, 20.0));
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        // Get the tip entity and the active growth tip resource and check state
+        let tip = app.world().get::<GrowthTip>(tip_entity).unwrap();
+        assert!(tip.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert_eq!(active.0, Some(tip_entity));
+    }
+
+    #[test]
+    /// Spawn selected tip, click far away: no tip selected.
+    fn test_clicking_empty_space_deselects() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_position = Vec2::new(10.0, 20.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip { selected: true },
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut().resource_mut::<ActiveGrowthTip>().0 = Some(tip_entity);
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(100.0, 100.0));
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let tip = app.world().get::<GrowthTip>(tip_entity).unwrap();
+        assert!(!tip.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert!(active.0.is_none());
+    }
+
+    #[test]
+    /// Spawn selected tip, click it again: same tip selected.
+    fn test_clicking_already_selected_tip_keeps_selection() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_position = Vec2::new(10.0, 20.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip { selected: true },
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut().resource_mut::<ActiveGrowthTip>().0 = Some(tip_entity);
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(10.0, 20.0));
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let tip = app.world().get::<GrowthTip>(tip_entity).unwrap();
+        assert!(tip.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert_eq!(active.0, Some(tip_entity));
+    }
+
+    #[test]
+    /// Spawn two tips, one selected, click the other: other is selected.
+    fn test_selecting_new_tip_deselects_old() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_1_position = Vec2::new(10.0, 20.0);
+        let tip_1_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip { selected: true },
+                TendrilPosition::new(tip_1_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut().resource_mut::<ActiveGrowthTip>().0 = Some(tip_1_entity);
+
+        let tip_2_position = Vec2::new(20.0, 40.0);
+        let tip_2_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_2_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 40.0));
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let tip_1 = app.world().get::<GrowthTip>(tip_1_entity).unwrap();
+        assert!(!tip_1.selected);
+
+        let tip_2 = app.world().get::<GrowthTip>(tip_2_entity).unwrap();
+        assert!(tip_2.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert_eq!(active.0, Some(tip_2_entity));
+    }
+
+    #[test]
+    /// Spawn two tips within selection radius, click between them: closest is selected
+    fn test_selects_closest_tip_when_multiple_in_radius() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let cursor_pos = Vec2::new(50.0, 50.0);
+
+        let tip_1_position = Vec2::new(50.0, 58.0);
+        let tip_1_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_1_position, Vec2::X),
+            ))
+            .id();
+
+        let tip_2_position = Vec2::new(50.0, 61.0);
+        let _tip_2_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_2_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(cursor_pos);
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let tip_1 = app.world().get::<GrowthTip>(tip_1_entity).unwrap();
+        assert!(tip_1.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert_eq!(active.0, Some(tip_1_entity));
+    }
+
+    #[test]
+    /// Spawn tip, set cursor: no tip selected.
+    fn test_no_selection_without_click() {
+        // Create app and init input + cursor
+        let mut app = create_test_app();
+        app.update();
+
+        // Put the app in playing state
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        // Spawn tendril/tip entity
+        let tip_position = Vec2::new(10.0, 20.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        // Set cursor
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(10.0, 20.0));
+
+        app.update();
+
+        // Get the tip entity and the active growth tip resource and check state
+        let tip = app.world().get::<GrowthTip>(tip_entity).unwrap();
+        assert!(!tip.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert!(active.0.is_none());
+    }
+
+    #[test]
+    /// Spawn tip, set cursor outside window: no tip selected, no crash.
+    fn test_no_crash_when_cursor_outside_window() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let tip_position = Vec2::new(10.0, 20.0);
+        let tip_entity = app
+            .world_mut()
+            .spawn((
+                GrowthTip::default(),
+                TendrilPosition::new(tip_position, Vec2::X),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = None;
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let tip = app.world().get::<GrowthTip>(tip_entity).unwrap();
+        assert!(!tip.selected);
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert!(active.0.is_none());
+    }
+
+    #[test]
+    /// Spawn no tip, set cursor and press: no tip selected, no crash.
+    fn test_clicking_with_no_tips_does_nothing() {
+        let mut app = create_test_app();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<CursorWorldPosition>()
+            .position = Some(Vec2::new(20.0, 10.0));
+
+        app.world_mut()
+            .resource_mut::<InputActions>()
+            .primary_just_pressed = true;
+
+        app.update();
+
+        let active = app.world().resource::<ActiveGrowthTip>();
+        assert!(active.0.is_none());
     }
 }

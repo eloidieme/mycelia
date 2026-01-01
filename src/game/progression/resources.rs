@@ -23,20 +23,29 @@ impl Default for Nutrients {
 }
 
 impl Nutrients {
-    /// Create a new Nutrients resource with specified values
+    /// Create a new Nutrients resource with specified values.
+    /// Current is clamped to max to maintain invariant.
     #[must_use]
     pub fn new(current: f32, max: f32) -> Self {
-        Self { current, max }
+        Self {
+            current: current.min(max),
+            max,
+        }
     }
 
-    /// Add nutrients, capped at max
+    /// Add nutrients, capped at max. Negative amounts are ignored.
     pub fn add(&mut self, amount: f32) {
-        self.current = (self.current + amount).min(self.max);
+        if amount > 0.0 {
+            self.current = (self.current + amount).min(self.max);
+        }
     }
 
     /// Attempt to spend nutrients. Returns true if successful, false if insufficient.
-    /// Does not deduct if insufficient.
+    /// Does not deduct if insufficient. Negative amounts return false.
     pub fn spend(&mut self, amount: f32) -> bool {
+        if amount < 0.0 {
+            return false;
+        }
         if self.current >= amount {
             self.current -= amount;
             true
@@ -61,9 +70,11 @@ impl Nutrients {
         }
     }
 
-    /// Increase the maximum nutrient capacity
+    /// Increase the maximum nutrient capacity. Negative amounts are ignored.
     pub fn increase_max(&mut self, amount: f32) {
-        self.max += amount;
+        if amount > 0.0 {
+            self.max += amount;
+        }
     }
 }
 
@@ -137,6 +148,13 @@ mod tests {
     }
 
     #[test]
+    fn test_nutrients_new_clamps_current_to_max() {
+        let nutrients = Nutrients::new(150.0, 100.0);
+        assert_eq!(nutrients.current, 100.0); // Clamped to max
+        assert_eq!(nutrients.max, 100.0);
+    }
+
+    #[test]
     fn test_nutrients_add() {
         let mut nutrients = Nutrients::new(50.0, 100.0);
         nutrients.add(25.0);
@@ -148,6 +166,13 @@ mod tests {
         let mut nutrients = Nutrients::new(80.0, 100.0);
         nutrients.add(50.0);
         assert_eq!(nutrients.current, 100.0);
+    }
+
+    #[test]
+    fn test_nutrients_add_ignores_negative() {
+        let mut nutrients = Nutrients::new(50.0, 100.0);
+        nutrients.add(-20.0);
+        assert_eq!(nutrients.current, 50.0); // Unchanged
     }
 
     #[test]
@@ -172,6 +197,14 @@ mod tests {
         let result = nutrients.spend(50.0);
         assert!(result);
         assert_eq!(nutrients.current, 0.0);
+    }
+
+    #[test]
+    fn test_nutrients_spend_negative_returns_false() {
+        let mut nutrients = Nutrients::new(50.0, 100.0);
+        let result = nutrients.spend(-10.0);
+        assert!(!result);
+        assert_eq!(nutrients.current, 50.0); // Unchanged
     }
 
     #[test]
@@ -219,6 +252,13 @@ mod tests {
         nutrients.increase_max(50.0);
         assert_eq!(nutrients.max, 150.0);
         assert_eq!(nutrients.current, 50.0); // Current unchanged
+    }
+
+    #[test]
+    fn test_nutrients_increase_max_ignores_negative() {
+        let mut nutrients = Nutrients::new(50.0, 100.0);
+        nutrients.increase_max(-20.0);
+        assert_eq!(nutrients.max, 100.0); // Unchanged
     }
 
     #[test]

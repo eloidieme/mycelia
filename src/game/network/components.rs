@@ -6,6 +6,59 @@ use bevy::prelude::*;
 #[derive(Component, Debug, Default)]
 pub struct CoreNode;
 
+/// Health component for damageable entities
+#[derive(Component, Debug)]
+pub struct Health {
+    pub current: f32,
+    pub max: f32,
+}
+
+impl Health {
+    pub fn new(max: f32) -> Self {
+        Self { current: max, max }
+    }
+
+    pub fn damage(&mut self, amount: f32) {
+        self.current = (self.current - amount).max(0.0);
+    }
+
+    pub fn heal(&mut self, amount: f32) {
+        self.current = (self.current + amount).min(self.max);
+    }
+
+    pub fn is_dead(&self) -> bool {
+        self.current <= 0.0
+    }
+
+    pub fn percentage(&self) -> f32 {
+        if self.max > 0.0 {
+            self.current / self.max
+        } else {
+            0.0
+        }
+    }
+}
+
+/// Marker that this entity is part of the fungal network
+#[derive(Component, Debug, Default)]
+pub struct NetworkMember;
+
+/// Visual configuration for network entities
+#[derive(Component, Debug)]
+pub struct NetworkVisuals {
+    pub base_color: Color,
+    pub corruption_color: Color,
+}
+
+impl Default for NetworkVisuals {
+    fn default() -> Self {
+        Self {
+            base_color: Color::srgb(0.4, 0.8, 0.4),       // Healthy green
+            corruption_color: Color::srgb(0.6, 0.1, 0.4), // Corruption purple
+        }
+    }
+}
+
 /// A segment of the fungal network
 #[derive(Component, Debug)]
 pub struct TendrilSegment {
@@ -78,5 +131,83 @@ mod tests {
     #[test]
     fn test_tendril_type_default() {
         assert_eq!(TendrilType::default(), TendrilType::Basic);
+    }
+
+    // Health component tests
+    #[test]
+    fn test_health_new() {
+        let health = Health::new(100.0);
+        assert_eq!(health.current, 100.0);
+        assert_eq!(health.max, 100.0);
+    }
+
+    #[test]
+    fn test_health_damage() {
+        let mut health = Health::new(100.0);
+        health.damage(30.0);
+        assert_eq!(health.current, 70.0);
+    }
+
+    #[test]
+    fn test_health_damage_does_not_go_negative() {
+        let mut health = Health::new(50.0);
+        health.damage(100.0);
+        assert_eq!(health.current, 0.0);
+    }
+
+    #[test]
+    fn test_health_heal() {
+        let mut health = Health::new(100.0);
+        health.damage(50.0);
+        health.heal(30.0);
+        assert_eq!(health.current, 80.0);
+    }
+
+    #[test]
+    fn test_health_heal_does_not_exceed_max() {
+        let mut health = Health::new(100.0);
+        health.damage(10.0);
+        health.heal(50.0);
+        assert_eq!(health.current, 100.0);
+    }
+
+    #[test]
+    fn test_health_is_dead() {
+        let mut health = Health::new(100.0);
+        assert!(!health.is_dead());
+        health.damage(100.0);
+        assert!(health.is_dead());
+    }
+
+    #[test]
+    fn test_health_percentage() {
+        let mut health = Health::new(100.0);
+        assert_eq!(health.percentage(), 1.0);
+        health.damage(25.0);
+        assert_eq!(health.percentage(), 0.75);
+    }
+
+    #[test]
+    fn test_health_percentage_zero_max() {
+        let health = Health {
+            current: 0.0,
+            max: 0.0,
+        };
+        assert_eq!(health.percentage(), 0.0); // Should not panic
+    }
+
+    // NetworkMember tests
+    #[test]
+    fn test_network_member_is_component() {
+        fn assert_component<T: Component>() {}
+        assert_component::<NetworkMember>();
+    }
+
+    // NetworkVisuals tests
+    #[test]
+    fn test_network_visuals_default() {
+        let visuals = NetworkVisuals::default();
+        // Just check it has some colors set
+        assert_ne!(visuals.base_color, Color::NONE);
     }
 }

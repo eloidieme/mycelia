@@ -11,6 +11,7 @@ pub mod input;
 pub mod map;
 pub mod network;
 pub mod progression;
+pub mod state;
 pub mod ui;
 
 /// Plugin that registers all game systems
@@ -19,7 +20,7 @@ pub struct GameSystemsPlugin;
 impl Plugin for GameSystemsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            input::InputPlugin,
+            state::StatePlugin,
             network::NetworkPlugin,
             combat::CombatPlugin,
             enemies::EnemiesPlugin,

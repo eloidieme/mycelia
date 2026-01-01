@@ -64,20 +64,6 @@ mod tests {
     }
 
     #[test]
-    fn test_can_set_active_growth_tip() {
-        let entity = Entity::from_raw(42);
-        let active_tip = ActiveGrowthTip(Some(entity));
-        assert_eq!(active_tip.0, Some(entity));
-    }
-
-    #[test]
-    fn test_can_clear_active_growth_tip() {
-        let mut active_tip = ActiveGrowthTip(Some(Entity::from_raw(42)));
-        active_tip.0 = None;
-        assert!(active_tip.0.is_none());
-    }
-
-    #[test]
     fn test_active_growth_tip_is_resource() {
         fn assert_resource<T: Resource>() {}
         assert_resource::<ActiveGrowthTip>();

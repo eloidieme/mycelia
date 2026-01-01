@@ -159,7 +159,7 @@ mod tests {
 
         {
             let mut stats = app.world_mut().resource_mut::<NetworkStats>();
-            stats.connected_segments = 20;
+            stats.connected_segments = 200;
             stats.territory_coverage = 20.0;
         }
         app.world_mut().resource_mut::<Nutrients>().current = 50.0;
@@ -170,6 +170,8 @@ mod tests {
 
         let with_20 = app.world().resource::<Nutrients>().current;
 
+        dbg!(&with_10);
+        dbg!(&with_20);
         assert!(
             with_20 > with_10,
             "Expected 20 segments ({}) to generate more than 10 segments ({})",

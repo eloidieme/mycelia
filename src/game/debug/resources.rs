@@ -3,9 +3,10 @@
 //! Resources for controlling and tracking debug overlay state.
 
 use bevy::prelude::*;
+use std::collections::VecDeque;
 
 /// Controls debug overlay visibility and feature toggles
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug)]
 pub struct DebugSettings {
     /// Master toggle for all debug displays
     pub enabled: bool,
@@ -23,6 +24,21 @@ pub struct DebugSettings {
     pub show_network_graph: bool,
     /// Show cursor world position
     pub show_cursor_position: bool,
+}
+
+impl Default for DebugSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false, // Disabled by default, F3 to toggle
+            show_fps: true,
+            show_entity_count: true,
+            show_network_stats: true,
+            show_nutrients: true,
+            show_game_state: true,
+            show_network_graph: false, // Off by default, can be heavy
+            show_cursor_position: true,
+        }
+    }
 }
 
 impl DebugSettings {
@@ -53,10 +69,12 @@ impl DebugSettings {
 }
 
 /// Tracks frame timing for FPS calculation
+///
+/// Uses a circular buffer (VecDeque) for O(1) insertion and removal.
 #[derive(Resource, Debug)]
 pub struct FrameTimeTracker {
     /// Recent frame times in seconds
-    frame_times: Vec<f32>,
+    frame_times: VecDeque<f32>,
     /// Maximum number of samples to keep
     max_samples: usize,
 }
@@ -72,17 +90,17 @@ impl FrameTimeTracker {
     #[must_use]
     pub fn new(max_samples: usize) -> Self {
         Self {
-            frame_times: Vec::with_capacity(max_samples),
+            frame_times: VecDeque::with_capacity(max_samples),
             max_samples,
         }
     }
 
-    /// Record a frame time
+    /// Record a frame time (O(1) operation)
     pub fn record(&mut self, delta: f32) {
         if self.frame_times.len() >= self.max_samples {
-            self.frame_times.remove(0);
+            self.frame_times.pop_front(); // O(1) with VecDeque
         }
-        self.frame_times.push(delta);
+        self.frame_times.push_back(delta);
     }
 
     /// Get the average FPS over the sample window
@@ -133,9 +151,19 @@ mod tests {
 
     // DebugSettings tests
     #[test]
-    fn test_debug_settings_default_disabled() {
+    fn test_debug_settings_default_disabled_but_features_on() {
         let settings = DebugSettings::default();
+        // Master toggle is off
         assert!(!settings.enabled);
+        // But display features are on so overlay is useful when enabled
+        assert!(settings.show_fps);
+        assert!(settings.show_entity_count);
+        assert!(settings.show_network_stats);
+        assert!(settings.show_nutrients);
+        assert!(settings.show_game_state);
+        assert!(settings.show_cursor_position);
+        // Network graph off by default (can be heavy)
+        assert!(!settings.show_network_graph);
     }
 
     #[test]

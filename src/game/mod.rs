@@ -22,6 +22,7 @@ impl Plugin for GameSystemsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             state::StatePlugin,
+            input::InputPlugin,
             network::NetworkPlugin,
             combat::CombatPlugin,
             enemies::EnemiesPlugin,

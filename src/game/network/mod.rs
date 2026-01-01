@@ -29,6 +29,7 @@ impl Plugin for NetworkPlugin {
         app
             // Resources
             .init_resource::<NetworkStats>()
+            .init_resource::<ActiveGrowthTip>()
             .init_resource::<TendrilAnimationState>()
             // Spawn core node when entering Playing state
             .add_systems(OnEnter(GameState::Playing), systems::spawn_core_node)

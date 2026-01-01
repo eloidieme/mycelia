@@ -29,8 +29,21 @@ impl Plugin for StatePlugin {
                 Update,
                 systems::update_run_time.run_if(in_state(GameState::Playing)),
             )
-            // Reset stats when entering Playing (new run)
-            .add_systems(OnEnter(GameState::Playing), systems::reset_run_stats);
+            // Reset stats only when starting a new run (not when resuming from pause)
+            .add_systems(
+                OnTransition {
+                    exited: GameState::Menu,
+                    entered: GameState::Playing,
+                },
+                systems::reset_run_stats,
+            )
+            .add_systems(
+                OnTransition {
+                    exited: GameState::GameOver,
+                    entered: GameState::Playing,
+                },
+                systems::reset_run_stats,
+            );
     }
 }
 
@@ -119,8 +132,9 @@ mod tests {
     }
 
     #[test]
-    fn test_run_stats_reset_on_playing_enter() {
+    fn test_run_stats_reset_on_new_game_from_menu() {
         let mut app = create_test_app();
+        app.update(); // Start in Menu
 
         // Modify run stats
         {
@@ -129,15 +143,52 @@ mod tests {
             stats.elapsed_time = 500.0;
         }
 
-        // Transition to Playing (should reset)
+        // Transition from Menu to Playing (should reset)
         app.world_mut()
             .resource_mut::<NextState<GameState>>()
             .set(GameState::Playing);
         app.update();
+        app.update();
 
         let stats = app.world().resource::<RunStats>();
         assert_eq!(stats.enemies_killed, 0);
-        // elapsed_time may have small delta from update, check it's close to 0
         assert!(stats.elapsed_time < 0.1);
+    }
+
+    #[test]
+    fn test_run_stats_not_reset_on_unpause() {
+        let mut app = create_test_app();
+        app.update(); // Start in Menu
+
+        // Go to Playing first
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        // Modify run stats while playing
+        {
+            let mut stats = app.world_mut().resource_mut::<RunStats>();
+            stats.enemies_killed = 50;
+            stats.elapsed_time = 100.0;
+        }
+
+        // Pause the game
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Paused);
+        app.update();
+        app.update();
+
+        // Unpause (Paused -> Playing) - should NOT reset stats
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.update();
+        app.update();
+
+        let stats = app.world().resource::<RunStats>();
+        assert_eq!(stats.enemies_killed, 50); // Should still be 50
     }
 }

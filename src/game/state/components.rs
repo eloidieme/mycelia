@@ -23,9 +23,13 @@ impl RunStats {
 }
 
 /// Resource tracking pause state details
+///
+/// Note: `was_paused_by_upgrade` is reserved for future use when the
+/// Upgrading state is fully implemented. Currently, pausing uses the
+/// Paused state directly.
 #[derive(Resource, Debug, Default)]
 pub struct PauseState {
-    /// Whether the pause was triggered by upgrade selection
+    /// Whether the pause was triggered by upgrade selection (future use)
     pub was_paused_by_upgrade: bool,
 }
 

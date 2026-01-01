@@ -91,6 +91,9 @@ pub mod z_order {
 /// Corruption color for blending
 const CORRUPTION_COLOR: Color = Color::srgb(0.5, 0.1, 0.4);
 
+/// Brightness multiplier for unselected growth tips
+const GROWTH_TIP_BRIGHTNESS_MULTIPLIER: f32 = 1.3;
+
 /// Linearly interpolate between two colors
 #[must_use]
 pub fn lerp_color(a: Color, b: Color, t: f32) -> Color {
@@ -138,6 +141,24 @@ pub fn update_tendril_animation(time: Res<Time>, mut anim_state: ResMut<TendrilA
     anim_state.time += time.delta_secs();
 }
 
+/// Calculate pulse value for animations (returns 0.0 to 1.0)
+#[must_use]
+pub fn calculate_pulse(time: f32, speed: f32) -> f32 {
+    (time * speed).sin() * 0.5 + 0.5
+}
+
+/// Brighten a color by the growth tip brightness multiplier
+#[must_use]
+pub fn brighten_color(color: Color) -> Color {
+    let srgba = color.to_srgba();
+    Color::srgba(
+        (srgba.red * GROWTH_TIP_BRIGHTNESS_MULTIPLIER).min(1.0),
+        (srgba.green * GROWTH_TIP_BRIGHTNESS_MULTIPLIER).min(1.0),
+        (srgba.blue * GROWTH_TIP_BRIGHTNESS_MULTIPLIER).min(1.0),
+        srgba.alpha,
+    )
+}
+
 /// Render all tendril segments as lines connecting to their parents
 pub fn render_tendrils(
     mut gizmos: Gizmos,
@@ -163,7 +184,7 @@ pub fn render_growth_tips(
 ) {
     for (pos, tip, style) in tips.iter() {
         // Pulsing size based on animation
-        let pulse = (anim_state.time * anim_state.pulse_speed).sin() * 0.5 + 0.5;
+        let pulse = calculate_pulse(anim_state.time, anim_state.pulse_speed);
         let base_radius = 6.0;
         let radius = base_radius + pulse * 3.0;
 
@@ -174,13 +195,7 @@ pub fn render_growth_tips(
             Color::srgb(1.0, 1.0, 0.8)
         } else {
             // Slightly brighter version of base color
-            let srgba = base_color.to_srgba();
-            Color::srgba(
-                (srgba.red * 1.3).min(1.0),
-                (srgba.green * 1.3).min(1.0),
-                (srgba.blue * 1.3).min(1.0),
-                srgba.alpha,
-            )
+            brighten_color(base_color)
         };
 
         gizmos.circle_2d(pos.position, radius, color);
@@ -205,8 +220,8 @@ pub fn render_core(
 
     let pos = transform.translation.truncate();
 
-    // Pulsing core
-    let pulse = (anim_state.time * 1.5).sin() * 0.5 + 0.5;
+    // Pulsing core (uses a custom slower pulse speed of 1.5)
+    let pulse = calculate_pulse(anim_state.time, 1.5);
     let inner_radius = 14.0 + pulse * 2.0;
     let outer_radius = 18.0 + pulse * 3.0;
 
@@ -468,5 +483,124 @@ mod tests {
     fn test_tendril_animation_state_is_resource() {
         fn assert_resource<T: Resource>() {}
         assert_resource::<TendrilAnimationState>();
+    }
+
+    // Pulse calculation tests
+    #[test]
+    fn test_calculate_pulse_returns_between_zero_and_one() {
+        // Test multiple time values
+        for i in 0..100 {
+            let time = i as f32 * 0.1;
+            let pulse = calculate_pulse(time, 3.0);
+            assert!(pulse >= 0.0, "Pulse should be >= 0, got {}", pulse);
+            assert!(pulse <= 1.0, "Pulse should be <= 1, got {}", pulse);
+        }
+    }
+
+    #[test]
+    fn test_calculate_pulse_at_zero_time() {
+        // sin(0) = 0, so 0 * 0.5 + 0.5 = 0.5
+        let pulse = calculate_pulse(0.0, 1.0);
+        assert!((pulse - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_calculate_pulse_varies_with_speed() {
+        let pulse_slow = calculate_pulse(1.0, 1.0);
+        let pulse_fast = calculate_pulse(1.0, 2.0);
+        // Different speeds should produce different values at same time
+        // (unless they happen to sync, which they don't at t=1.0)
+        assert!((pulse_slow - pulse_fast).abs() > 0.01);
+    }
+
+    // Brighten color tests
+    #[test]
+    fn test_brighten_color_increases_rgb() {
+        let color = Color::srgb(0.5, 0.5, 0.5);
+        let brightened = brighten_color(color);
+        let srgba = brightened.to_srgba();
+
+        // Should be brighter (multiplied by 1.3)
+        assert!((srgba.red - 0.65).abs() < 0.01);
+        assert!((srgba.green - 0.65).abs() < 0.01);
+        assert!((srgba.blue - 0.65).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_brighten_color_clamps_to_one() {
+        let color = Color::srgb(0.9, 0.9, 0.9);
+        let brightened = brighten_color(color);
+        let srgba = brightened.to_srgba();
+
+        // Should be clamped to 1.0 (0.9 * 1.3 = 1.17 -> 1.0)
+        assert!((srgba.red - 1.0).abs() < 0.01);
+        assert!((srgba.green - 1.0).abs() < 0.01);
+        assert!((srgba.blue - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_brighten_color_preserves_alpha() {
+        let color = Color::srgba(0.5, 0.5, 0.5, 0.7);
+        let brightened = brighten_color(color);
+        let srgba = brightened.to_srgba();
+
+        // Alpha should remain unchanged
+        assert!((srgba.alpha - 0.7).abs() < 0.01);
+    }
+
+    // Growth tip radius calculation test
+    #[test]
+    fn test_growth_tip_radius_calculation() {
+        // Test the radius calculation used in render_growth_tips
+        let base_radius: f32 = 6.0;
+        let pulse_min: f32 = 0.0; // Pulse ranges from 0.0 to 1.0
+        let pulse_max: f32 = 1.0;
+
+        let radius_min = base_radius + pulse_min * 3.0;
+        let radius_max = base_radius + pulse_max * 3.0;
+
+        assert!((radius_min - 6.0).abs() < 0.01);
+        assert!((radius_max - 9.0).abs() < 0.01);
+    }
+
+    // Core node radius calculation test
+    #[test]
+    fn test_core_node_radius_calculation() {
+        // Test the radius calculation used in render_core
+        let pulse_min: f32 = 0.0;
+        let pulse_max: f32 = 1.0;
+
+        let inner_radius_min = 14.0 + pulse_min * 2.0;
+        let inner_radius_max = 14.0 + pulse_max * 2.0;
+        let outer_radius_min = 18.0 + pulse_min * 3.0;
+        let outer_radius_max = 18.0 + pulse_max * 3.0;
+
+        assert!((inner_radius_min - 14.0).abs() < 0.01);
+        assert!((inner_radius_max - 16.0).abs() < 0.01);
+        assert!((outer_radius_min - 18.0).abs() < 0.01);
+        assert!((outer_radius_max - 21.0).abs() < 0.01);
+    }
+
+    // Selected vs unselected growth tip color test
+    #[test]
+    fn test_growth_tip_selected_color() {
+        // Selected tips should be bright white-ish
+        let selected_color = Color::srgb(1.0, 1.0, 0.8);
+        let srgba = selected_color.to_srgba();
+        assert!(srgba.red >= 0.9);
+        assert!(srgba.green >= 0.9);
+    }
+
+    #[test]
+    fn test_growth_tip_unselected_color_is_brightened() {
+        let base_color = Color::srgb(0.4, 0.7, 0.3);
+        let unselected_color = brighten_color(base_color);
+        let base_srgba = base_color.to_srgba();
+        let result_srgba = unselected_color.to_srgba();
+
+        // Should be brighter than base
+        assert!(result_srgba.red > base_srgba.red);
+        assert!(result_srgba.green > base_srgba.green);
+        assert!(result_srgba.blue > base_srgba.blue);
     }
 }

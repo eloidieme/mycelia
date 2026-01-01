@@ -62,7 +62,7 @@ pub fn select_growth_tip(
 pub fn update_selected_tip_direction(
     cursor_position: Res<CursorWorldPosition>,
     active_tip: Res<ActiveGrowthTip>,
-    mut tips_query: Query<(Entity, &mut TendrilPosition, &mut GrowthTip)>,
+    mut tips_query: Query<(Entity, &mut TendrilPosition)>,
 ) {
     let Some(cursor) = cursor_position.position else {
         return;
@@ -70,7 +70,7 @@ pub fn update_selected_tip_direction(
     let Some(active_tip) = active_tip.0 else {
         return;
     };
-    let Ok((_entity, mut tip_pos, _tip)) = tips_query.get_mut(active_tip) else {
+    let Ok((_entity, mut tip_pos)) = tips_query.get_mut(active_tip) else {
         return;
     };
 

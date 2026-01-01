@@ -139,7 +139,7 @@ Three categories with unique mechanics:
 - Prefer composition over inheritance (ECS-native patterns)
 - Keep systems focused and single-purpose
 - Document public APIs with doc comments
-- use context7 if you needs docs or reference (bevy or other crates)
+- use context7 if you need docs or reference (bevy or other crates)
 
 ## Spec Reference
 

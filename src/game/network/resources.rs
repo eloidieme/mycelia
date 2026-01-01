@@ -78,6 +78,12 @@ mod tests {
     }
 
     #[test]
+    fn test_active_growth_tip_is_resource() {
+        fn assert_resource<T: Resource>() {}
+        assert_resource::<ActiveGrowthTip>();
+    }
+
+    #[test]
     fn test_network_stats_default() {
         let stats = NetworkStats::default();
         assert_eq!(stats.total_mass, 0.0);
